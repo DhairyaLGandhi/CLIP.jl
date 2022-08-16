@@ -17,7 +17,7 @@ function (ap::AttentionPool)(x)
   ap.mhead(x___[1, :, :, :], x___, x___)
 end
 
-struct ResidualAttention{A,LN1,LN2,NN,M}
+struct ResidualAttentionBlock{A,LN1,LN2,NN,M}
   attn::A
   ln1::LN1
   ln2::LN2
@@ -29,9 +29,19 @@ function residual_attention(ra, x, mask)
   ra.attn(x,x,x, mask = mask)
 end
 
-function (ra::ResidualAttention)(x)
+function (ra::ResidualAttentionBlock)(x)
   a = x .+ residual_attention(ra, ra.ln1(x), ra.mask)
   a .+ ra.mlp(ra.ln2(a))
+end
+
+function ResidualAttentionBlock(width, heads, mask)
+  attn = MultiheadAttention(heads, width, width, width)
+  ln1 = LayerNorm(width)
+  ln2 = LayerNorm(width)
+  mlp = Chain(c_fc = Dense(width, width * 4),
+              quickgelu = x -> x .* sigmoid(1.702f0 .* x),
+              c_proj = Dense(width * 4, width))
+  ResidualAttentionBlock(attn, ln1, ln2, mlp, mask)
 end
 
 struct CLIPTransformer{R}
@@ -43,6 +53,6 @@ function (ct::CLIPTransformer)(x)
 end
 
 function CLIPTransformer(width, layers, heads, mask = nothing)
-  resblocks = Chain([ResidualAttention(width, heads, mask) for _ = 1:layers])
+  resblocks = Chain([ResidualAttentionBlock(width, heads, mask) for _ = 1:layers])
   CLIPTransformer(resblocks)
 end
