@@ -56,3 +56,31 @@ function CLIPTransformer(width, layers, heads, mask = nothing)
   resblocks = Chain([ResidualAttentionBlock(width, heads, mask) for _ = 1:layers])
   CLIPTransformer(resblocks)
 end
+
+struct VisionTransformer{Co,C,PO,LN1,T,LN2,P}
+  conv1::Co
+  class_embedding::C
+  positional_embedding::PO
+  ln_pre::LN1
+  transformer::T
+  ln_post::LN2
+  proj::P
+end
+
+function VisionTransformer(input_res, patch_size,
+                           width, layers, heads,
+                           output_dim)
+  k = patch_size isa Int ? (patch_size, patch_size) : patch_size
+  conv1 = Conv(k, 3 => width, stride = k, bias = false)
+  scale = 1 / sqrt(width)
+  class_embedding = randn(width) .* scale
+  positional_embedding = randn(width, (input_res / patch_size) ^ 2 + 1) .* scale
+  ln_pre = LayerNorm(width)
+  transformer = CLIPTransformer(width, layers, heads)
+  ln_post = LayerNorm(width)
+  proj = Dense(randn(output_dim, width) .* scale)
+  VisionTransformer(conv1, class_embedding, positional_embedding,
+                    ln_pre, transformer, ln_post, proj)
+end
+
+
