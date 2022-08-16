@@ -11,5 +11,8 @@ function AttentionPool(spacial_dim, num_head, embed_dim, output_dim)
 end
 
 function (ap::AttentionPool)(x)
-  
+  x_ = permutedims(x, (1,2,4,3))
+  x__ = vcat(mean(x_, dims = 3), x)
+  x___ = x__ .+ ap.pos
+  ap.mhead(x___[1:1, :, :, :], x___, x___)
 end
