@@ -1,5 +1,13 @@
 module CLIP
 
-greet() = print("Hello World!")
+using Flux, Flux.Zygote
+using Transformers
+using Transformers.Basic
+using Transformers.Basic: MultiheadAttention
+using Metalhead
+
+using Statistics
+
+include("model.jl")
 
 end # module
