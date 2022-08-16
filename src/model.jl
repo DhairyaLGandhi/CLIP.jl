@@ -34,4 +34,15 @@ function (ra::ResidualAttention)(x)
   a .+ ra.mlp(ra.ln2(a))
 end
 
+struct CLIPTransformer{R}
+  resblocks::R
+end
 
+function (ct::CLIPTransformer)(x)
+  ct.resblocks(x)
+end
+
+function CLIPTransformer(width, layers, heads, mask = nothing)
+  resblocks = Chain([ResidualAttention(width, heads, mask) for _ = 1:layers])
+  CLIPTransformer(resblocks)
+end
