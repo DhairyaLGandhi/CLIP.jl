@@ -92,6 +92,9 @@ function (vt::VisionTransformer)(x)
   ln1_pre_out = vt.ln_pre(cat_x2)
   # transformer_out = vt.transformer(permutedims(ln1_pre_out, (2,1,3)))
   transformer_out = vt.transformer(ln1_pre_out)  
-  ln_post_out = vt.ln_post(transformer_out)  
-  
+
+  # https://github.com/openai/CLIP/blob/d50d76daa670286dd6cacf3bcd80b5e4823fc8e1/clip/model.py#L235
+  # CLIP seems to pull out only the first channel - why?
+  ln_post_out = vt.ln_post(transformer_out[:, 1, :]) 
+  vt.proj(ln_post_out)
 end
