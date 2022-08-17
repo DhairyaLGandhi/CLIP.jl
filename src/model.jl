@@ -5,7 +5,7 @@ end
 
 function AttentionPool(spacial_dim, num_head, embed_dim, output_dim)
   # i_dim = 
-  positional_encoding = randn(embed_dim, spacial_dim ^ 2 + 1) ./ sqrt.(embed_dim)
+  positional_encoding = randn(embed_dim, round(spacial_dim ^ 2 + 1, RoundDown)) ./ sqrt.(embed_dim)
   mha = MultiheadAttention(num_head, embed_dim, embed_dim, isnothing(output_dim) ? embed_dim : output_dim)
   AttentionPool(positional_encoding, mha)
 end
@@ -74,7 +74,7 @@ function VisionTransformer(input_res, patch_size,
   conv1 = Conv(k, 3 => width, stride = k, bias = false)
   scale = 1 / sqrt(width)
   class_embedding = randn(width) .* scale
-  positional_embedding = randn(width, (input_res / patch_size) ^ 2 + 1) .* scale
+  positional_embedding = randn(width, Int(round(input_res / patch_size, RoundDown) ^ 2 + 1)) .* scale
   ln_pre = LayerNorm(width)
   transformer = CLIPTransformer(width, layers, heads)
   ln_post = LayerNorm(width)
@@ -83,4 +83,15 @@ function VisionTransformer(input_res, patch_size,
                     ln_pre, transformer, ln_post, proj)
 end
 
-
+function (vt::VisionTransformer)(x)
+  c_out = vt.conv1(x)
+  re_c_out = reshape(c_out, :, size(c_out)[end-1:end]...)  
+  p_c_out = permutedims(re_c_out, (2,1,3))
+  cat_x = cat(reshape(repeat(vt.class_embedding, size(x)[end]), :, 1, size(x)[end]), p_c_out, dims = 2)
+  cat_x2 = cat_x .+ vt.positional_embedding
+  ln1_pre_out = vt.ln_pre(cat_x2)
+  # transformer_out = vt.transformer(permutedims(ln1_pre_out, (2,1,3)))
+  transformer_out = vt.transformer(ln1_pre_out)  
+  ln_post_out = vt.ln_post(transformer_out)  
+  
+end
