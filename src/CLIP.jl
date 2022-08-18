@@ -6,7 +6,7 @@ using Transformers.Basic
 using Transformers.Basic: MultiheadAttention
 using Metalhead
 
-using Statistics
+using Statistics, LinearAlgebra
 
 include("model.jl")
 

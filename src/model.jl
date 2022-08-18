@@ -30,6 +30,7 @@ function residual_attention(ra, x, mask)
 end
 
 function (ra::ResidualAttentionBlock)(x)
+  @show size(x), size(ra.ln1(x))
   a = x .+ residual_attention(ra, ra.ln1(x), ra.mask)
   a .+ ra.mlp(ra.ln2(a))
 end
@@ -97,4 +98,64 @@ function (vt::VisionTransformer)(x)
   # CLIP seems to pull out only the first channel - why?
   ln_post_out = vt.ln_post(transformer_out[:, 1, :]) 
   vt.proj(ln_post_out)
+end
+
+struct Clip{CL, V, T, VS, TE, PE, L, TP, LS}
+  context_length::CL
+  visual::V
+  transformer::T
+  vocab_size::VS
+  token_embedding::TE
+  positional_embedding::PE
+  ln_final::L
+  text_projection::TP
+  logit_scale::LS
+end
+
+function build_attention_mask(x)
+  f = fill(-Inf32, x,x)
+  triu!(f, 1)
+  f
+end
+
+normal_init(d) = (args...) -> normal_init(d, args...)
+function normal_init(d, args::Int...)
+  rand(d, args...)
+end
+
+function Clip(input_res,
+              vision_width, vision_layers, vision_patch_size,
+              embed_dim,
+              transformer_width, transformer_heads, transformer_layers,
+              context_length,
+              vocab_size)
+  vision_heads = Int(round(vision_width / 64, RoundDown))
+  visual = VisionTransformer(input_res, vision_patch_size, vision_width, vision_layers, vision_heads, embed_dim)
+
+  mask = build_attention_mask(context_length)
+  transformer = CLIPTransformer(transformer_width, transformer_layers, transformer_heads, mask)
+
+  token_embedding = Flux.Embedding(vocab_size, transformer_width)
+  positional_embedding = Flux.glorot_normal(transformer_width, context_length)
+  ln_final = LayerNorm(transformer_width)
+
+  text_projection = Flux.glorot_normal(embed_dim, transformer_width)
+  logit_scale = [log(1/0.07f0)]
+  Clip(context_length,  visual, transformer, vocab_size,
+       token_embedding, positional_embedding, ln_final,
+       text_projection, logit_scale)
+end
+
+encode_img(model, img) = model(img)
+function encode_text(model, text)
+  x = model.token_embedding(text)
+  x_pos_emb = x .+ model.positional_embedding
+  
+end
+
+function (clip::Clip)(img, text)
+  img_features = encode_img(clip.visual, img)
+  text_features = encode_text(clip, text)
+
+    
 end
