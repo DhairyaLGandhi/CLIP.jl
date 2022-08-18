@@ -30,7 +30,6 @@ function residual_attention(ra, x, mask)
 end
 
 function (ra::ResidualAttentionBlock)(x)
-  @show size(x), size(ra.ln1(x))
   a = x .+ residual_attention(ra, ra.ln1(x), ra.mask)
   a .+ ra.mlp(ra.ln2(a))
 end
